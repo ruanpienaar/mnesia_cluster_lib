@@ -113,6 +113,19 @@ rest_of_setup(Nodes, ExtraNodes) ->
     io:format("[~p] Schema Created step check done ~n", [?MODULE]),
     %% Starting mnesia on cluster
     ok = mnesia_start_on_cluster(ExtraNodes),
+
+    Steps = application:get_env(mnesia_cluster_lib, post_schema_create_mnesia_start_steps, []),
+    lists:foreach(fun(Step) ->
+        case Step of
+            {{M,F,[]}, ExpectedResponse} ->
+                ExpectedResponse = M:F();
+            {{M,F,Args}, ExpectedResponse} ->
+                ExpectedResponse = erlang:apply(M, F, Args);
+            {M,F,Args} ->
+                erlang:apply(M, F, Args)
+        end
+    end, Steps),
+
     %% Startup after schema Created step
     ok = application:set_env(mnesia_cluster_lib, startup_after_schema_create, true),
     ok = poll(
